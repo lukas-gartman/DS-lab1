@@ -1,9 +1,11 @@
 package main
 
 import (
-	"errors"
+	"bytes"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -27,36 +29,108 @@ func extractRequestFields(conn net.Conn) []string {
 	return strings.Fields(string(buffer[:mLen]))
 }
 
-func handleGetRequest(requestFields []string) {
-	path := requestFields[1] // TODO: escape path?
-	if _, err := os.Stat(path); err == nil {
+func handleGetRequest(conn net.Conn, requestFields []string) http.Response {
+	pwd, _ := os.Getwd()
+	filename := requestFields[1]
+	file, err := os.ReadFile(pwd + filename)
+	var response http.Response
 
-	} else if errors.Is(err, os.ErrNotExist) {
-		// path/to/whatever does *not* exist
-
-	} else {
-		// Schrodinger: file may or may not exist. See err for details.
-
-		// Therefore, do *NOT* use !os.IsNotExist(err) to test for file existence
-
+	s := strings.Split(filename, ".")
+	fileType := s[len(s)-1]
+	var contentType string
+	switch fileType {
+	case "html":
+		contentType = "text/html"
+	case "txt":
+		contentType = "text/plain"
+	case "gif":
+		contentType = "image/gif"
+	case "jpeg":
+		contentType = "image/jpeg"
+	case "jpg":
+		contentType = "image/jpeg"
+	case "css":
+		contentType = "text/css"
 	}
+	if contentType == "" {
+		response = http.Response{
+			Body:       io.NopCloser(bytes.NewBufferString("<h3>400 Bad Request</h3>")),
+			Status:     "400 Bad Request",
+			StatusCode: 400,
+			Proto:      "HTTP/1,1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header:     make(http.Header, 0),
+		}
+	} else if err != nil {
+		response = http.Response{
+			Body:       io.NopCloser(bytes.NewBufferString("<h3>404 Not Found</h3>")),
+			Status:     "404 Not Found",
+			StatusCode: 404,
+			Proto:      "HTTP/1,1",
+			ProtoMajor: 1,
+			ProtoMinor: 1,
+			Header:     make(http.Header, 0),
+		}
+	} else {
+		response = http.Response{
+			Body:          io.NopCloser(bytes.NewBuffer(file)),
+			Status:        "200 OK",
+			StatusCode:    200,
+			Proto:         "HTTP/1.1",
+			ProtoMajor:    1,
+			ProtoMinor:    1,
+			ContentLength: int64(len(file)),
+			Header:        make(http.Header, 0),
+		}
+
+		response.Header.Add("Content-Type", contentType)
+	}
+
+	return response
+}
+
+func handlePostRequest(conn net.Conn, requestFields []string) http.Response {
+	var response http.Response
+	return response
+}
+
+func handleInvalidRequest() http.Response {
+	var response http.Response
+	response = http.Response{
+		Body:       io.NopCloser(bytes.NewBufferString("<h3>501 Not Implemented</h3>")),
+		Status:     "501 Not Implemented",
+		StatusCode: 501,
+		Proto:      "HTTP/1,1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+		Header:     make(http.Header, 0),
+	}
+	return response
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	fmt.Println("Accepting incoming connection from " + conn.LocalAddr().String())
+	fmt.Println("[Server] Accepting incoming connection from " + conn.LocalAddr().String())
 
 	s.pool <- conn
 
 	requestFields := extractRequestFields(conn)
-	fmt.Println(requestFields)
+	// fmt.Println(requestFields)
 	method := requestFields[0]
+	var response http.Response
 	switch method {
 	case "GET":
-		fmt.Println("is a GET request")
+		response = handleGetRequest(conn, requestFields)
 	case "POST":
-		fmt.Println("is a POST request")
+		response = handlePostRequest(conn, requestFields)
+	default:
+		response = handleInvalidRequest()
 	}
+
+	buff := bytes.NewBuffer(nil)
+	response.Write(buff)
+	conn.Write(buff.Bytes())
 
 	<-s.pool
 }
