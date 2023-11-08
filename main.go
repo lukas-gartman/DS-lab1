@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -9,35 +10,19 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	// "math/rand"
-	// "sync"
 )
 
 type Server struct {
 	port int
 	pool chan net.Conn
-	// mu sync.Mutex
 }
 
-func extractRequestFields(conn net.Conn) []string {
-	buffer := make([]byte, 1024)
-	mLen, err := conn.Read(buffer)
-	if err != nil {
-		fmt.Println("Error reading:", err.Error())
-	}
-
-	return strings.Fields(string(buffer[:mLen]))
-}
-
-func handleGetRequest(conn net.Conn, requestFields []string) http.Response {
-	pwd, _ := os.Getwd()
-	filename := requestFields[1]
-	file, err := os.ReadFile(pwd + filename)
-	var response http.Response
+func getContentType(filename string) (string, bool) {
+	var contentType string
+	error := false
 
 	s := strings.Split(filename, ".")
 	fileType := s[len(s)-1]
-	var contentType string
 	switch fileType {
 	case "html":
 		contentType = "text/html"
@@ -51,25 +36,63 @@ func handleGetRequest(conn net.Conn, requestFields []string) http.Response {
 		contentType = "image/jpeg"
 	case "css":
 		contentType = "text/css"
+	default:
+		error = true
 	}
-	if contentType == "" {
+
+	return contentType, error
+}
+
+func getFileType(contentType string) (string, bool) {
+	var fileType string
+	error := false
+
+	s := strings.Split(contentType, ";")
+	ct := strings.TrimSpace(strings.ToLower(s[0]))
+	switch ct {
+	case "text/html":
+		fileType = ".html"
+	case "text/plain":
+		fileType = ".txt"
+	case "image/gif":
+		fileType = ".gif"
+	case "image/jpeg":
+		fileType = ".jpg"
+	case "text/css":
+		fileType = ".css"
+	default:
+		error = true
+	}
+
+	return fileType, error
+}
+
+func handleGetRequest(conn net.Conn, request *http.Request) http.Response {
+	pwd, _ := os.Getwd()
+	filename := request.RequestURI
+	fmt.Println(filename)
+	file, fileError := os.ReadFile(pwd + filename)
+	var response http.Response
+	contentType, contentTypeError := getContentType(filename)
+
+	if contentTypeError {
 		response = http.Response{
 			Body:       io.NopCloser(bytes.NewBufferString("<h3>400 Bad Request</h3>")),
 			Status:     "400 Bad Request",
 			StatusCode: 400,
-			Proto:      "HTTP/1,1",
-			ProtoMajor: 1,
-			ProtoMinor: 1,
+			Proto:      "HTTP/2",
+			ProtoMajor: 2,
+			ProtoMinor: 2,
 			Header:     make(http.Header, 0),
 		}
-	} else if err != nil {
+	} else if fileError != nil {
 		response = http.Response{
 			Body:       io.NopCloser(bytes.NewBufferString("<h3>404 Not Found</h3>")),
 			Status:     "404 Not Found",
 			StatusCode: 404,
-			Proto:      "HTTP/1,1",
-			ProtoMajor: 1,
-			ProtoMinor: 1,
+			Proto:      "HTTP/2",
+			ProtoMajor: 2,
+			ProtoMinor: 2,
 			Header:     make(http.Header, 0),
 		}
 	} else {
@@ -77,36 +100,88 @@ func handleGetRequest(conn net.Conn, requestFields []string) http.Response {
 			Body:          io.NopCloser(bytes.NewBuffer(file)),
 			Status:        "200 OK",
 			StatusCode:    200,
-			Proto:         "HTTP/1.1",
-			ProtoMajor:    1,
-			ProtoMinor:    1,
+			Proto:         "HTTP/2",
+			ProtoMajor:    2,
+			ProtoMinor:    2,
 			ContentLength: int64(len(file)),
 			Header:        make(http.Header, 0),
 		}
-
 		response.Header.Add("Content-Type", contentType)
 	}
 
 	return response
 }
 
-func handlePostRequest(conn net.Conn, requestFields []string) http.Response {
+func readData(conn net.Conn, bufferSize int) []byte {
+	var data []byte
+	for {
+		buffer := make([]byte, bufferSize)
+		n, err := conn.Read(buffer)
+		if err != nil {
+			if err == io.EOF {
+				data = append(data, buffer[:n]...)
+				break
+			} else {
+				fmt.Println("Error reading:\n ", err.Error())
+			}
+		}
+		data = append(data, buffer[:n]...)
+	}
+
+	return data
+}
+
+func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 	var response http.Response
+	// filename := request.RequestURI
+	contentType := request.Header.Get("Content-Type")
+	fileType, fileTypeError := getFileType(contentType)
+	if fileTypeError {
+		response = http.Response{
+			Body:       io.NopCloser(bytes.NewBufferString("<h3>400 Bad Request</h3>")),
+			Status:     "400 Bad Request",
+			StatusCode: 400,
+			Proto:      "HTTP/2",
+			ProtoMajor: 2,
+			ProtoMinor: 2,
+			Header:     make(http.Header, 0),
+		}
+	} else {
+		data, dataErr := io.ReadAll(request.Body)
+		if dataErr != nil {
+			fmt.Println(dataErr.Error())
+		}
+
+		pwd, _ := os.Getwd()
+		fileErr := os.WriteFile(pwd+"/test.jpg", data, 0644)
+		if fileErr != nil {
+			fmt.Println(fileErr.Error())
+		}
+	}
 	return response
 }
 
 func handleInvalidRequest() http.Response {
-	var response http.Response
-	response = http.Response{
+	return http.Response{
 		Body:       io.NopCloser(bytes.NewBufferString("<h3>501 Not Implemented</h3>")),
 		Status:     "501 Not Implemented",
 		StatusCode: 501,
-		Proto:      "HTTP/1,1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
+		Proto:      "HTTP/2",
+		ProtoMajor: 2,
+		ProtoMinor: 2,
 		Header:     make(http.Header, 0),
 	}
-	return response
+}
+
+func extractRequestFields(conn net.Conn) []string {
+	// data = readData(conn, 1024)
+	buffer := make([]byte, 1024)
+	mLen, err := conn.Read(buffer)
+	if err != nil {
+		fmt.Println("Error reading:\n ", err.Error())
+	}
+
+	return strings.Fields(string(buffer[:mLen]))
 }
 
 func (s *Server) handleConnection(conn net.Conn) {
@@ -115,15 +190,23 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	s.pool <- conn
 
-	requestFields := extractRequestFields(conn)
+	// requestFields := extractRequestFields(conn)
 	// fmt.Println(requestFields)
-	method := requestFields[0]
+	// method := requestFields[0]
+
+	request, err := http.ReadRequest(bufio.NewReader(conn))
+	if err != nil {
+		fmt.Println("Error reading request:", err)
+		return
+	}
+
+	method := request.Method
 	var response http.Response
 	switch method {
 	case "GET":
-		response = handleGetRequest(conn, requestFields)
+		response = handleGetRequest(conn, request)
 	case "POST":
-		response = handlePostRequest(conn, requestFields)
+		response = handlePostRequest(conn, request)
 	default:
 		response = handleInvalidRequest()
 	}
