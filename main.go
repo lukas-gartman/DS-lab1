@@ -151,7 +151,7 @@ func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 		if dataErr != nil {
 			fmt.Println(dataErr.Error())
 		}
-
+		fmt.Println("filetype is ", fileType)
 		pwd, _ := os.Getwd()
 		fileErr := os.WriteFile(pwd+"/test.jpg", data, 0644)
 		if fileErr != nil {
