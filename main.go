@@ -234,6 +234,7 @@ func (s *Server) Listen() {
 }
 
 func main() {
-	server := Server{port: 1337, pool: make(chan net.Conn, 10)}
+	port_arg, _ := strconv.Atoi(os.Args[1])
+	server := Server{port: port_arg, pool: make(chan net.Conn, 10)}
 	server.Listen()
 }
