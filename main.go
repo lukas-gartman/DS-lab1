@@ -5,11 +5,13 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Server struct {
@@ -133,9 +135,16 @@ func readData(conn net.Conn, bufferSize int) []byte {
 
 func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 	var response http.Response
-	// filename := request.RequestURI
+	uri := request.RequestURI
+	fmt.Println(uri)
 	contentType := request.Header.Get("Content-Type")
+	filename := request.Header.Get("filename")
 	fileType, fileTypeError := getFileType(contentType)
+	if filename == "" {
+		var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+		filename = strconv.Itoa(seededRand.Int())
+	}
+
 	if fileTypeError {
 		response = http.Response{
 			Body:       io.NopCloser(bytes.NewBufferString("<h3>400 Bad Request</h3>")),
@@ -151,13 +160,36 @@ func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 		if dataErr != nil {
 			fmt.Println(dataErr.Error())
 		}
-		fileName := request.Header.Get("filename")
-		fmt.Println("filename is ", fileName)
-		fmt.Println("filetype is ", fileType)
+
 		pwd, _ := os.Getwd()
-		fileErr := os.WriteFile(pwd+"/"+fileName+"."+fileType, data, 0644)
+		dirErr := os.MkdirAll(pwd+uri, os.ModePerm)
+		if dirErr != nil {
+			fmt.Println(dirErr.Error())
+			return http.Response{
+				Body:       io.NopCloser(bytes.NewBufferString("<h3>400 Bad Request</h3>")),
+				Status:     "400 Bad Request",
+				StatusCode: 400,
+				Proto:      "HTTP/2",
+				ProtoMajor: 2,
+				ProtoMinor: 0,
+				Header:     make(http.Header, 0),
+			}
+		} else {
+			pwd = pwd + uri
+		}
+		fileErr := os.WriteFile(pwd+"/"+filename+fileType, data, os.ModePerm)
 		if fileErr != nil {
 			fmt.Println(fileErr.Error())
+		}
+
+		response = http.Response{
+			Body:       io.NopCloser(bytes.NewBufferString(filename + fileType)),
+			Status:     "200 OK",
+			StatusCode: 200,
+			Proto:      "HTTP/2",
+			ProtoMajor: 2,
+			ProtoMinor: 0,
+			Header:     make(http.Header, 0),
 		}
 	}
 	return response
@@ -175,26 +207,11 @@ func handleInvalidRequest() http.Response {
 	}
 }
 
-func extractRequestFields(conn net.Conn) []string {
-	// data = readData(conn, 1024)
-	buffer := make([]byte, 1024)
-	mLen, err := conn.Read(buffer)
-	if err != nil {
-		fmt.Println("Error reading:\n ", err.Error())
-	}
-
-	return strings.Fields(string(buffer[:mLen]))
-}
-
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 	fmt.Println("[Server] Accepting incoming connection from " + conn.LocalAddr().String())
 
 	s.pool <- conn
-
-	// requestFields := extractRequestFields(conn)
-	// fmt.Println(requestFields)
-	// method := requestFields[0]
 
 	request, err := http.ReadRequest(bufio.NewReader(conn))
 	if err != nil {
