@@ -183,7 +183,7 @@ func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 		}
 
 		response = http.Response{
-			Body:       io.NopCloser(bytes.NewBufferString(filename + fileType)),
+			Body:       io.NopCloser(bytes.NewBufferString(uri + "/" + filename + fileType)),
 			Status:     "200 OK",
 			StatusCode: 200,
 			Proto:      "HTTP/2",
