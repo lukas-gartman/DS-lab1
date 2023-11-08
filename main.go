@@ -234,7 +234,13 @@ func (s *Server) Listen() {
 }
 
 func main() {
-	port_arg, _ := strconv.Atoi(os.Args[1])
-	server := Server{port: port_arg, pool: make(chan net.Conn, 10)}
-	server.Listen()
+	if len(os.Args) > 1 {
+		port_arg, err := strconv.Atoi(os.Args[1])
+		if err == nil {
+			server := Server{port: port_arg, pool: make(chan net.Conn, 10)}
+			server.Listen()
+		}
+	} else {
+		fmt.Println("Please provide a port.")
+	}
 }
