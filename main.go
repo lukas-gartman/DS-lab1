@@ -82,7 +82,7 @@ func handleGetRequest(conn net.Conn, request *http.Request) http.Response {
 			StatusCode: 400,
 			Proto:      "HTTP/2",
 			ProtoMajor: 2,
-			ProtoMinor: 2,
+			ProtoMinor: 0,
 			Header:     make(http.Header, 0),
 		}
 	} else if fileError != nil {
@@ -92,7 +92,7 @@ func handleGetRequest(conn net.Conn, request *http.Request) http.Response {
 			StatusCode: 404,
 			Proto:      "HTTP/2",
 			ProtoMajor: 2,
-			ProtoMinor: 2,
+			ProtoMinor: 0,
 			Header:     make(http.Header, 0),
 		}
 	} else {
@@ -102,7 +102,7 @@ func handleGetRequest(conn net.Conn, request *http.Request) http.Response {
 			StatusCode:    200,
 			Proto:         "HTTP/2",
 			ProtoMajor:    2,
-			ProtoMinor:    2,
+			ProtoMinor:    0,
 			ContentLength: int64(len(file)),
 			Header:        make(http.Header, 0),
 		}
@@ -143,7 +143,7 @@ func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 			StatusCode: 400,
 			Proto:      "HTTP/2",
 			ProtoMajor: 2,
-			ProtoMinor: 2,
+			ProtoMinor: 0,
 			Header:     make(http.Header, 0),
 		}
 	} else {
@@ -168,7 +168,7 @@ func handleInvalidRequest() http.Response {
 		StatusCode: 501,
 		Proto:      "HTTP/2",
 		ProtoMajor: 2,
-		ProtoMinor: 2,
+		ProtoMinor: 0,
 		Header:     make(http.Header, 0),
 	}
 }
