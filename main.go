@@ -114,25 +114,6 @@ func handleGetRequest(conn net.Conn, request *http.Request) http.Response {
 	return response
 }
 
-func readData(conn net.Conn, bufferSize int) []byte {
-	var data []byte
-	for {
-		buffer := make([]byte, bufferSize)
-		n, err := conn.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				data = append(data, buffer[:n]...)
-				break
-			} else {
-				fmt.Println("Error reading:\n ", err.Error())
-			}
-		}
-		data = append(data, buffer[:n]...)
-	}
-
-	return data
-}
-
 func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 	var response http.Response
 	uri := request.RequestURI
@@ -237,12 +218,13 @@ func (s *Server) handleConnection(conn net.Conn) {
 	<-s.pool
 }
 func (s *Server) Listen() {
-	fmt.Println("[Server] Listening for incoming connections...")
 	server, err := net.Listen("tcp", ":"+strconv.Itoa(s.port))
 	if err != nil {
 		fmt.Println("Unable to start server:\n ", err.Error())
 	}
 	defer server.Close()
+
+	fmt.Println("[Server] Listening for incoming connections on port " + strconv.Itoa(s.port) + "...")
 	for {
 		conn, err := server.Accept()
 		if err != nil {
