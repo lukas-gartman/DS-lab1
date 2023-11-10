@@ -69,10 +69,9 @@ func getFileType(contentType string) (string, bool) {
 	return fileType, error
 }
 
-func handleGetRequest(conn net.Conn, request *http.Request) http.Response {
+func (s *Server) handleGetRequest(conn net.Conn, request *http.Request) http.Response {
 	pwd, _ := os.Getwd()
 	filename := request.RequestURI
-	fmt.Println(filename)
 	file, fileError := os.ReadFile(pwd + filename)
 	var response http.Response
 	contentType, contentTypeError := getContentType(filename)
@@ -114,10 +113,9 @@ func handleGetRequest(conn net.Conn, request *http.Request) http.Response {
 	return response
 }
 
-func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
+func (s *Server) handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 	var response http.Response
 	uri := request.RequestURI
-	fmt.Println(uri)
 	contentType := request.Header.Get("Content-Type")
 	filename := request.Header.Get("filename")
 	fileType, fileTypeError := getFileType(contentType)
@@ -176,7 +174,7 @@ func handlePostRequest(conn net.Conn, request *http.Request) http.Response {
 	return response
 }
 
-func handleInvalidRequest() http.Response {
+func (s *Server) handleInvalidRequest() http.Response {
 	return http.Response{
 		Body:       io.NopCloser(bytes.NewBufferString("<h3>501 Not Implemented</h3>")),
 		Status:     "501 Not Implemented",
@@ -190,7 +188,7 @@ func handleInvalidRequest() http.Response {
 
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
-	fmt.Println("[Server] Accepting incoming connection from " + conn.LocalAddr().String())
+	fmt.Println("[Server] Accepting incoming connection from " + conn.RemoteAddr().String())
 
 	s.pool <- conn
 
@@ -204,11 +202,11 @@ func (s *Server) handleConnection(conn net.Conn) {
 	var response http.Response
 	switch method {
 	case "GET":
-		response = handleGetRequest(conn, request)
+		response = s.handleGetRequest(conn, request)
 	case "POST":
-		response = handlePostRequest(conn, request)
+		response = s.handlePostRequest(conn, request)
 	default:
-		response = handleInvalidRequest()
+		response = s.handleInvalidRequest()
 	}
 
 	buff := bytes.NewBuffer(nil)
