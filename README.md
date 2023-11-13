@@ -31,7 +31,7 @@ A simple HTTP server written in Go, supporting proxy connections. It supports HT
 
 Starting the server:
 ```
-$ go run main.go <proxy>:<port> <server>:<port>
+$ go run main.go <port> <server>:<port>
 ```
 
 Requests can be made through `curl`, Postman, web browsers, etc.
