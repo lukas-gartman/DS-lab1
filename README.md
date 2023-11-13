@@ -2,11 +2,11 @@
 
 Lab 1 of the course Distributed Systems, 2023.
 
-### HTTP server
+## HTTP server
 
 A simple HTTP server written in Go, implemented without using `http` server functions (e.g. `ListenAndServe`). It supports HTTP methods `GET` and `POST`.
 
-## Usage
+### Usage
  
 Starting the server:
 ```
@@ -15,7 +15,7 @@ $ go run main.go <port>
 
 Requests can be made through `curl`, Postman, web browsers, etc.
 
-## Methods
+### Methods
 
 `func (s *Server) Listen(conn net.Conn)`
 : Creates a listener to the network, that listens to TCP connections to the server's port. Any incoming connections get accepted and handled by the connection handler.
@@ -23,11 +23,11 @@ Requests can be made through `curl`, Postman, web browsers, etc.
 `func (s *Server) handleConnection(conn net.Conn)`
 : Assigns workers from the server's pool to handle requests. GET, POST and invalid requests are handled in separate methods.
 
-### HTTP proxy
+## HTTP proxy
 
 A simple HTTP server written in Go, supporting proxy connections. It supports HTTP `GET`.
 
-## Usage
+### Usage
 
 Starting the server:
 ```
@@ -36,7 +36,7 @@ $ go run main.go <proxy>:<port> <server>:<port>
 
 Requests can be made through `curl`, Postman, web browsers, etc.
 
-## Methods
+### Methods
 
 `func (p *Proxy) Listen(conn net.Conn)`
 : Creates a listener to the network, that listens to TCP connections to the proxy server's port. Any incoming connections get accepted and handled by the connection handler.
